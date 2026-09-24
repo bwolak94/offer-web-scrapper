@@ -2,77 +2,63 @@ name: CI
 
 on:
   push:
-    branches: ["**"]        # every branch, every push
+    branches: ["**"]
   pull_request:
-    branches: [main]        # all PRs targeting main
+    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true  # cancel in-flight runs on the same branch when a new commit arrives
+  cancel-in-progress: true
 
 jobs:
-  # ─────────────────────────────────────────────────────────────────
-  # Job 1: Lint
-  # Fast ESLint check — no build artefacts or DB connection needed.
-  # ─────────────────────────────────────────────────────────────────
+  # ── Job 1: Lint ──────────────────────────────────────────────────
   lint:
     name: ci / lint
     runs-on: ubuntu-latest
-    # Skip gracefully when package-lock.json doesn't exist yet (pre FE-01).
-    # GitHub treats jobs skipped via if: as passing for required status checks.
-    if: "${{ hashFiles('package-lock.json') != '' }}"
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: "npm"
 
-      - name: Install dependencies
-        run: npm ci --prefer-offline
+      - name: Lint
+        run: |
+          if [ ! -f package-lock.json ]; then
+            echo "No package-lock.json yet (project initialises in FE-01). Skipping."
+            exit 0
+          fi
+          npm ci --prefer-offline
+          npm run lint
 
-      - name: Run ESLint
-        run: npm run lint
-
-  # ─────────────────────────────────────────────────────────────────
-  # Job 2: Typecheck
-  # Full TypeScript compile (no emit). Must pass before build runs.
-  # ─────────────────────────────────────────────────────────────────
+  # ── Job 2: Typecheck ─────────────────────────────────────────────
   typecheck:
     name: ci / typecheck
     runs-on: ubuntu-latest
-    if: "${{ hashFiles('package-lock.json') != '' }}"
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: "npm"
 
-      - name: Install dependencies
-        run: npm ci --prefer-offline
+      - name: Typecheck
+        run: |
+          if [ ! -f package-lock.json ]; then
+            echo "No package-lock.json yet (project initialises in FE-01). Skipping."
+            exit 0
+          fi
+          npm ci --prefer-offline
+          npm run typecheck
 
-      - name: Run TypeScript type check
-        run: npm run typecheck
-
-  # ─────────────────────────────────────────────────────────────────
-  # Job 3: Build
-  # Production Next.js build. Blocked on typecheck — fail fast.
-  # Env vars are stubs: the build does not start a server or make
-  # network calls, so placeholder values are safe. Do NOT use real
-  # secrets here — principle of least privilege.
-  # ─────────────────────────────────────────────────────────────────
+  # ── Job 3: Build ─────────────────────────────────────────────────
+  # Depends on typecheck. Env vars are stubs — build does not start
+  # a server or make network calls; placeholders are safe here.
+  # Do NOT use real secrets in this job (principle of least privilege).
   build:
     name: ci / build
     runs-on: ubuntu-latest
     needs: [typecheck]
-    if: "${{ hashFiles('package-lock.json') != '' }}"
     env:
       DATABASE_URL: "postgresql://ci:ci@localhost/ci?sslmode=disable"
       DATABASE_URL_UNPOOLED: "postgresql://ci:ci@localhost/ci?sslmode=disable"
@@ -93,14 +79,11 @@ jobs:
       UPSTASH_REDIS_REST_URL: "https://redis.example.com"
       UPSTASH_REDIS_REST_TOKEN: "ci_placeholder"
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: "npm"
 
       - name: Restore Next.js build cache
         uses: actions/cache@v4
@@ -111,50 +94,44 @@ jobs:
             ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
             ${{ runner.os }}-nextjs-
 
-      - name: Install dependencies
-        run: npm ci --prefer-offline
+      - name: Build
+        run: |
+          if [ ! -f package-lock.json ]; then
+            echo "No package-lock.json yet (project initialises in FE-01). Skipping."
+            exit 0
+          fi
+          npm ci --prefer-offline
+          npm run build
 
-      - name: Build Next.js application
-        run: npm run build
-
-  # ─────────────────────────────────────────────────────────────────
-  # Job 4: Schema check
-  # Detects schema drift: runs drizzle-kit generate and checks whether
-  # the drizzle/ migration folder is dirty. A dirty tree means
-  # src/db/schema.ts was changed but the migration SQL was not
-  # committed — fails with an actionable error message.
-  #
-  # No DB connection required. drizzle-kit generate works from the
-  # TypeScript schema alone. The introspect step (which needs
-  # DATABASE_URL_UNPOOLED) is intentionally excluded — running it
-  # against production Neon on every CI push is a security concern.
-  # Re-enable against a dev Neon branch once DEVOPS-03 is complete.
-  # (FULLSTACK-REVIEW ISSUE-W12)
-  # ─────────────────────────────────────────────────────────────────
+  # ── Job 4: Schema check ──────────────────────────────────────────
+  # Detects drift between src/db/schema.ts and committed migrations.
+  # drizzle-kit generate needs no DB connection — schema only.
+  # (FULLSTACK-REVIEW ISSUE-W12: drizzle-kit introspect excluded to
+  # avoid hitting production Neon on every CI push.)
   schema-check:
     name: ci / schema-check
     runs-on: ubuntu-latest
-    if: "${{ hashFiles('package-lock.json') != '' }}"
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: "npm"
 
-      - name: Install dependencies
-        run: npm ci --prefer-offline
-
-      - name: Check for schema drift
-        # drizzle-kit must be in devDependencies (added in BE-01) so npm ci
-        # installs it and npx uses the local version — not a fresh download.
+      - name: Schema drift check
         run: |
+          if [ ! -f package-lock.json ]; then
+            echo "No package-lock.json yet (project initialises in FE-01). Skipping."
+            exit 0
+          fi
+          if [ ! -f drizzle.config.ts ]; then
+            echo "No drizzle.config.ts yet (created in BE-01). Skipping."
+            exit 0
+          fi
+          npm ci --prefer-offline
           npx drizzle-kit generate --config drizzle.config.ts
           if ! git diff --exit-code drizzle/; then
-            echo "::error::Schema drift detected: src/db/schema.ts has changes not reflected in committed migration files."
-            echo "::error::Run 'npx drizzle-kit generate' locally and commit the generated SQL files."
+            echo "::error::Schema drift detected: src/db/schema.ts has changes not reflected in committed migrations."
+            echo "::error::Run 'npx drizzle-kit generate' locally and commit the output."
             exit 1
           fi

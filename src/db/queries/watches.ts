@@ -71,6 +71,12 @@ export async function findWatchCandidatesByEmbedding(
   type: WatchType,
   limit: number
 ): Promise<DbWatch[]> {
+  // Guard against sql.raw injection: a compromised Ollama endpoint could return
+  // non-finite values that would land verbatim inside the raw SQL string.
+  if (!embedding.every((x) => typeof x === 'number' && isFinite(x))) {
+    throw new Error('Invalid embedding: array contains non-finite or non-numeric values')
+  }
+
   const vectorLiteral = `[${embedding.join(',')}]`
 
   return db

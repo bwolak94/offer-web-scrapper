@@ -1,0 +1,31 @@
+# Default owner for all files not matched by a more specific rule.
+# Replace @your-github-username with the actual GitHub username or team slug.
+*                           @your-github-username
+
+# DevOps / infrastructure
+.github/                    @your-github-username
+vercel.json                 @your-github-username
+
+# Database — schema changes and migrations require careful review
+drizzle/                    @your-github-username
+src/db/                     @your-github-username
+
+# Security primitives — rate limiter, SSRF validator, env validation
+# Changes here can silently disable protections; require explicit review
+src/lib/                    @your-github-username
+
+# API routes — entire attack surface (auth, rate limiting, QStash signatures)
+src/app/api/                @your-github-username
+
+# AI layer — embeddings, scoring, hybrid search
+src/ai/                     @your-github-username
+
+# Scrapers — each source site is independently owned
+src/scraper/real-estate/    @your-github-username
+src/scraper/jobs/           @your-github-username
+
+# Notification dispatch
+src/notify/                 @your-github-username
+
+# Pipeline core
+src/pipeline/               @your-github-username

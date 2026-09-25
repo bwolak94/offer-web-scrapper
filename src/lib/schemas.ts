@@ -18,7 +18,6 @@ export const WorkerScrapePayloadSchema = z.union([
 
 export type WorkerScrapePayloadParsed = z.infer<typeof WorkerScrapePayloadSchema>
 
-export const WorkerScorePayloadSchema = z.object({
-  ids:  z.array(z.string().uuid()),
-  type: z.enum(['listing', 'job']),
-})
+// WorkerScorePayloadSchema is defined inline in src/app/api/worker/score/route.ts
+// with the full constraints (ids min(1).max(50), criteriaOverride optional).
+// Do not duplicate it here — divergent schemas are a maintenance trap.

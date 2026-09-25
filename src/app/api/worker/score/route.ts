@@ -28,7 +28,7 @@ const DEFAULT_JOB_CRITERIA =
 const WorkerScorePayloadSchema = z.object({
   ids:              z.array(z.string().uuid()).min(1).max(50),
   type:             z.enum(['listing', 'job']),
-  criteriaOverride: z.string().min(1).max(2000).optional(),
+  criteriaOverride: z.string().min(1).max(500).optional(), // aligns with scorer.ts 500-char slice
 })
 
 // ---------------------------------------------------------------------------

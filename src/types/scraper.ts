@@ -57,3 +57,7 @@ export interface ScraperError {
   message: string
   code:    'PARSE_ERROR' | 'NETWORK_ERROR' | 'BLOCKED' | 'TIMEOUT'
 }
+
+export interface Scraper {
+  scrape(category: string, page: number): Promise<ScraperResult<ScrapedListing | ScrapedJob>>
+}

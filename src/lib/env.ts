@@ -5,6 +5,7 @@
 const REQUIRED_SERVER_VARS = [
   'DATABASE_URL',
   'DATABASE_URL_UNPOOLED',
+  'QSTASH_TOKEN',
   'QSTASH_CURRENT_SIGNING_KEY',
   'QSTASH_NEXT_SIGNING_KEY',
   'UPSTASH_REDIS_REST_URL',
@@ -32,6 +33,7 @@ if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'test') {
 export const env = {
   DATABASE_URL:                    process.env.DATABASE_URL!,
   DATABASE_URL_UNPOOLED:           process.env.DATABASE_URL_UNPOOLED!,
+  QSTASH_TOKEN:                    process.env.QSTASH_TOKEN!,
   QSTASH_CURRENT_SIGNING_KEY:      process.env.QSTASH_CURRENT_SIGNING_KEY!,
   QSTASH_NEXT_SIGNING_KEY:         process.env.QSTASH_NEXT_SIGNING_KEY!,
   UPSTASH_REDIS_REST_URL:          process.env.UPSTASH_REDIS_REST_URL!,

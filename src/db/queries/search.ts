@@ -183,7 +183,8 @@ export async function hybridSearchListings(
   if (!queryEmbedding.every((x) => typeof x === 'number' && Number.isFinite(x))) {
     throw new Error('[search] Invalid queryEmbedding: contains non-finite values')
   }
-  const vectorLiteral = `[${queryEmbedding.join(',')}]`
+  // Use toFixed(8) to guarantee decimal notation (no scientific notation like 1e-8)
+  const vectorLiteral = `[${queryEmbedding.map(x => x.toFixed(8)).join(',')}]`
 
   // Build optional WHERE fragments for filter application inside CTEs.
   // All user values go through parameterized sql`` bindings — never sql.raw().
@@ -289,7 +290,7 @@ export async function hybridSearchJobs(
   if (!queryEmbedding.every((x) => typeof x === 'number' && Number.isFinite(x))) {
     throw new Error('[search] Invalid queryEmbedding: contains non-finite values')
   }
-  const vectorLiteral = `[${queryEmbedding.join(',')}]`
+  const vectorLiteral = `[${queryEmbedding.map(x => x.toFixed(8)).join(',')}]`
 
   const locationClause       = location       ? sql` AND j.location ILIKE ${'%' + location + '%'}` : sql``
   const remoteClause         = remote != null  ? sql` AND j.remote = ${remote}`                     : sql``
@@ -370,13 +371,35 @@ export async function hybridSearchJobs(
 
 // ─── ftsOnlySearchListings ────────────────────────────────────────────────────
 
+export interface ListingFtsFilters {
+  category?:  ListingCategory
+  priceMin?:  number
+  priceMax?:  number
+  areaMin?:   number
+  areaMax?:   number
+  rooms?:     number[]
+  location?:  string
+  source?:    string[]
+  scoreMin?:  number
+}
+
 export async function ftsOnlySearchListings(
   queryText: string,
-  category:  ListingCategory | undefined,
+  filters:   ListingFtsFilters,
   limit:     number,
   offset:    number
 ): Promise<ListingPublic[]> {
-  const categoryClause = category ? sql` AND l.category = ${category}` : sql``
+  const categoryClause = filters.category ? sql` AND l.category = ${filters.category}` : sql``
+  const priceMinClause = filters.priceMin  != null ? sql` AND l.price >= ${filters.priceMin}`           : sql``
+  const priceMaxClause = filters.priceMax  != null ? sql` AND l.price <= ${filters.priceMax}`           : sql``
+  const areaMinClause  = filters.areaMin   != null ? sql` AND l.area_m2 >= ${filters.areaMin}`          : sql``
+  const areaMaxClause  = filters.areaMax   != null ? sql` AND l.area_m2 <= ${filters.areaMax}`          : sql``
+  const locationClause = filters.location  ? sql` AND l.location ILIKE ${'%' + filters.location + '%'}` : sql``
+  const sourceClause   = filters.source?.length ? sql` AND l.source = ANY(${filters.source})`           : sql``
+  const scoreMinClause = filters.scoreMin  != null ? sql` AND l.ai_score >= ${filters.scoreMin}`        : sql``
+  const roomsClause    = filters.rooms?.length  ? sql` AND l.rooms = ANY(${filters.rooms})`             : sql``
+
+  const filterClauses = sql`${categoryClause}${priceMinClause}${priceMaxClause}${areaMinClause}${areaMaxClause}${locationClause}${sourceClause}${scoreMinClause}${roomsClause}`
 
   const rows = await db.execute<RawListingRow>(sql`
     SELECT
@@ -402,7 +425,7 @@ export async function ftsOnlySearchListings(
       l.updated_at
     FROM listings l
     WHERE l.fts @@ websearch_to_tsquery('polish_unaccent', ${queryText})
-      ${categoryClause}
+      ${filterClauses}
     ORDER BY ts_rank_cd(l.fts, websearch_to_tsquery('polish_unaccent', ${queryText}), 32) DESC
     LIMIT ${limit}
     OFFSET ${offset}
@@ -490,8 +513,20 @@ export async function searchListings(
   // Empty query: caller should use getFilteredListings for browse mode
   if (trimmedQuery.length === 0) return []
 
+  const listingFtsFilters: ListingFtsFilters = {
+    category:  filters.category,
+    priceMin:  filters.priceMin,
+    priceMax:  filters.priceMax,
+    areaMin:   filters.areaMin,
+    areaMax:   filters.areaMax,
+    rooms:     filters.rooms,
+    location:  filters.location,
+    source:    filters.source,
+    scoreMin:  filters.scoreMin,
+  }
+
   if (trimmedQuery.length < 3) {
-    return ftsOnlySearchListings(trimmedQuery, filters.category, limit, offset)
+    return ftsOnlySearchListings(trimmedQuery, listingFtsFilters, limit, offset)
   }
 
   let queryEmbedding: number[] | null = null
@@ -505,7 +540,7 @@ export async function searchListings(
   }
 
   if (!queryEmbedding) {
-    return ftsOnlySearchListings(trimmedQuery, filters.category, limit, offset)
+    return ftsOnlySearchListings(trimmedQuery, listingFtsFilters, limit, offset)
   }
 
   return hybridSearchListings({

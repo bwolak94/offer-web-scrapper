@@ -15,6 +15,7 @@ const REQUIRED_SERVER_VARS = [
   'CRON_SECRET',
   'RESEND_API_KEY',
   'RESEND_FROM_EMAIL',
+  'WATCHES_API_KEY',
   // BROWSERLESS_URL and BROWSERLESS_TOKEN are validated lazily inside the Browserless
   // scraper — not required at startup until BE-05/BE-06 scrapers are deployed.
 ] as const
@@ -48,8 +49,11 @@ export const env = {
   CRON_SECRET:                     process.env.CRON_SECRET!,
   RESEND_API_KEY:                  process.env.RESEND_API_KEY!,
   RESEND_FROM_EMAIL:               process.env.RESEND_FROM_EMAIL!,
+  WATCHES_API_KEY:                 process.env.WATCHES_API_KEY!,
   // Validated lazily in scraper — not required at startup until BE-05/BE-06
   BROWSERLESS_URL:                 process.env.BROWSERLESS_URL,
   BROWSERLESS_TOKEN:               process.env.BROWSERLESS_TOKEN,
+  // Not in REQUIRED_SERVER_VARS (has a safe local-dev default), but MUST be set
+  // in production — missing it silently routes all QStash jobs to localhost:3000.
   NEXT_PUBLIC_APP_URL:             process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
 } as const

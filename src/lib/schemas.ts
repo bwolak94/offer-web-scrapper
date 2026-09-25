@@ -105,7 +105,9 @@ export const WatchCreateSchema = z.object({
   criteria:      z.string().min(1).max(1000).optional(),
   minScore:      z.number().int().min(0).max(100).optional().default(70),
   notifyEmail:   z.string().email().optional(),
-  notifyWebhook: z.string().url().optional(),
+  notifyWebhook: z.string().url().refine(u => u.startsWith('https://'), {
+    message: 'Webhook URL must use HTTPS',
+  }).optional(),
 })
 
 export type WatchCreateParsed = z.infer<typeof WatchCreateSchema>

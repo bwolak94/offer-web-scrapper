@@ -8,12 +8,24 @@ import { createWatch, listWatches } from '@/db/queries/watches'
 import { getWatchesRatelimit, getIp } from '@/lib/ratelimit'
 import { generateEmbedding } from '@/ai/embeddings'
 import { AITask } from '@/ai/client'
+import { validateSsrf } from '@/lib/ssrf'
+import { isAuthorized } from '@/lib/auth'
 import type { WatchType } from '@/types'
 
 export const maxDuration = 30
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   try {
+    if (!isAuthorized(req)) {
+      return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 })
+    }
+
+    const ip = getIp(req)
+    const { success } = await getWatchesRatelimit().limit(ip)
+    if (!success) {
+      return NextResponse.json({ error: 'RATE_LIMITED' }, { status: 429 })
+    }
+
     const { searchParams } = new URL(req.url)
     const typeParam = searchParams.get('type') as WatchType | null
 
@@ -27,6 +39,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
+    if (!isAuthorized(req)) {
+      return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 })
+    }
+
     const ip = getIp(req)
     const { success } = await getWatchesRatelimit().limit(ip)
     if (!success) {
@@ -52,6 +68,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const { type, filters, criteria, minScore, notifyEmail, notifyWebhook } = parsed.data
+
+    if (notifyWebhook) {
+      try {
+        await validateSsrf(notifyWebhook)
+      } catch (err) {
+        return NextResponse.json(
+          { error: 'INVALID_WEBHOOK_URL', detail: err instanceof Error ? err.message : String(err) },
+          { status: 422 }
+        )
+      }
+    }
 
     let criteriaEmbedding: number[] | null = null
     if (criteria) {

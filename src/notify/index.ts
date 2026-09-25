@@ -1,7 +1,8 @@
 // src/notify/index.ts
 // Dispatch a notification for a single (watch, item) pair.
-// Calls email + webhook independently — one failure doesn't suppress the other.
-// Inserts to notification_log with onConflictDoNothing() for dedup safety.
+// Each channel is claimed atomically via INSERT ... ON CONFLICT DO NOTHING RETURNING id.
+// Only the worker that wins the INSERT race dispatches — eliminates duplicate delivery
+// even when multiple QStash workers process the same event concurrently.
 
 import { db } from '@/db/index'
 import { notificationLog } from '@/db/schema'
@@ -15,37 +16,39 @@ export async function sendNotification(
   item:    ListingPublic | JobPublic,
   refType: RefType
 ): Promise<void> {
-  const refId = item.id
+  const refId   = item.id
+  const channels: Array<'email' | 'webhook'> = []
+  if (watch.notifyEmail)   channels.push('email')
+  if (watch.notifyWebhook) channels.push('webhook')
+  if (channels.length === 0) return
 
-  // Fire email + webhook independently — failures are logged but don't block each other
-  const emailResult   = watch.notifyEmail   ? sendEmailNotification(watch, item)   : Promise.resolve()
-  const webhookResult = watch.notifyWebhook ? sendWebhookNotification(watch, item) : Promise.resolve()
-
-  const [emailSettled, webhookSettled] = await Promise.allSettled([emailResult, webhookResult])
-
-  if (emailSettled.status === 'rejected') {
-    console.error('[notify] Email dispatch failed', { watchId: watch.id, refId, err: emailSettled.reason })
-  }
-
-  if (webhookSettled.status === 'rejected') {
-    console.error('[notify] Webhook dispatch failed', { watchId: watch.id, refId, err: webhookSettled.reason })
-  }
-
-  // Record channels that attempted delivery (even partial failures)
-  // onConflictDoNothing prevents duplicate rows on QStash retries
-  const insertRows: Array<{ watch_id: string; ref_id: string; ref_type: RefType; channel: 'email' | 'webhook' }> = []
-
-  if (watch.notifyEmail) {
-    insertRows.push({ watch_id: watch.id, ref_id: refId, ref_type: refType, channel: 'email' })
-  }
-  if (watch.notifyWebhook) {
-    insertRows.push({ watch_id: watch.id, ref_id: refId, ref_type: refType, channel: 'webhook' })
-  }
-
-  if (insertRows.length > 0) {
-    await db
+  for (const channel of channels) {
+    // Atomically claim this (watch, ref, channel) slot.
+    // If another worker already claimed it (ON CONFLICT), skip dispatch.
+    const rows = await db
       .insert(notificationLog)
-      .values(insertRows)
+      .values({ watch_id: watch.id, ref_id: refId, ref_type: refType, channel })
       .onConflictDoNothing()
+      .returning({ id: notificationLog.id })
+
+    if (rows.length === 0) continue  // already claimed by another worker
+
+    // We own this slot — dispatch
+    try {
+      if (channel === 'email') {
+        await sendEmailNotification(watch, item)
+      } else {
+        await sendWebhookNotification(watch, item)
+      }
+    } catch (err) {
+      console.error('[notify] Dispatch failed', {
+        channel,
+        watchId: watch.id,
+        refId,
+        err: err instanceof Error ? err.message : String(err),
+      })
+      // Row stays in notification_log — intentional: prevents retry flooding
+      // within the 24h dedup window even on delivery failure.
+    }
   }
 }

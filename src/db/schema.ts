@@ -157,11 +157,10 @@ export const notificationLog = pgTable('notification_log', {
   channel:  channelEnum('channel').notNull(),
   sent_at:  timestamp('sent_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
-  // channel is included in the unique key so watches with both email + webhook
-  // configured get one log row per channel. Without it, the second channel's
-  // INSERT would silently conflict and the dedup check would suppress it from
-  // ever retrying — even though it never actually delivered.
-  uniqueWatchRef: uniqueIndex('notification_log_unique_watch_ref_idx').on(t.watch_id, t.ref_id, t.channel),
+  // ref_type is included to avoid cross-type UUID collisions (listings + jobs share
+  // the same UUID pool). channel is included so dual email+webhook watches get one
+  // log row per channel without the second channel's INSERT being suppressed.
+  uniqueWatchRef: uniqueIndex('notification_log_unique_watch_ref_idx').on(t.watch_id, t.ref_id, t.ref_type, t.channel),
   sentAtIdx:      index('notification_log_sent_at_idx').on(t.sent_at),
 }))
 

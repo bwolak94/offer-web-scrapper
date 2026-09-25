@@ -6,6 +6,21 @@ import { Resend } from 'resend'
 import { env } from '@/lib/env'
 import type { Watch, ListingPublic, JobPublic } from '@/types'
 
+// Prevent HTML injection from scraped titles/descriptions entering the email body.
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+}
+
+// Only allow https/http URLs in href to prevent javascript:/data: injection.
+function safeHref(url: string): string {
+  return /^https?:\/\//i.test(url) ? url : '#'
+}
+
 export async function sendEmailNotification(
   watch: Watch,
   item: ListingPublic | JobPublic
@@ -16,15 +31,15 @@ export async function sendEmailNotification(
   // during Next.js build phase (same pattern as other lazy singletons in this project)
   const resend = new Resend(env.RESEND_API_KEY)
 
-  const itemTitle = item.title
-  const subject   = `New match for your watch: ${itemTitle}`
+  const itemTitle = escapeHtml(item.title)
+  const subject   = `New match for your watch: ${item.title.slice(0, 100)}`
 
   const scoreSection = item.aiScore != null
     ? `<p><strong>AI Score:</strong> ${item.aiScore}/100</p>`
     : ''
 
   const descriptionSection = 'description' in item && item.description
-    ? `<p><strong>Description:</strong> ${item.description.slice(0, 300)}...</p>`
+    ? `<p><strong>Description:</strong> ${escapeHtml(item.description.slice(0, 300))}...</p>`
     : ''
 
   const html = `
@@ -32,7 +47,7 @@ export async function sendEmailNotification(
     <p><strong>Title:</strong> ${itemTitle}</p>
     ${scoreSection}
     ${descriptionSection}
-    <p><a href="${item.url}">View Offer</a></p>
+    <p><a href="${safeHref(item.url)}">View Offer</a></p>
     <hr />
     <p style="color:#888;font-size:12px;">
       You are receiving this because of a watch you created.

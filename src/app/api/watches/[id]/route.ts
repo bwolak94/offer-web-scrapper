@@ -6,19 +6,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { WatchUpdateSchema } from '@/lib/schemas'
 import { getWatchById, updateWatch, deleteWatch } from '@/db/queries/watches'
+import type { DbWatchInsert } from '@/db/queries/watches'
 import { getWatchesRatelimit, getIp } from '@/lib/ratelimit'
 import { generateEmbedding } from '@/ai/embeddings'
 import { AITask } from '@/ai/client'
+import { validateSsrf } from '@/lib/ssrf'
+import { isAuthorized } from '@/lib/auth'
 
 export const maxDuration = 30
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   try {
+    if (!isAuthorized(req)) {
+      return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 })
+    }
+
     const { id } = await params
 
     if (!UUID_RE.test(id)) {
@@ -42,6 +49,10 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   try {
+    if (!isAuthorized(req)) {
+      return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 })
+    }
+
     const ip = getIp(req)
     const { success } = await getWatchesRatelimit().limit(ip)
     if (!success) {
@@ -74,21 +85,44 @@ export async function PATCH(
 
     const { criteria, filters, minScore, notifyEmail, notifyWebhook, active } = parsed.data
 
-    const updateData: Record<string, unknown> = {}
+    // Fetch the existing watch to check for unchanged criteria (avoids redundant
+    // HuggingFace calls) and to confirm existence before updating.
+    const existing = await getWatchById(id)
+    if (!existing) {
+      return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 })
+    }
+
+    // Use a narrowly-typed object to prevent mass-assignment — no 'as' cast needed.
+    const updateData: Partial<DbWatchInsert> = {}
 
     if (filters !== undefined)       updateData.filters        = filters
     if (minScore !== undefined)      updateData.min_score      = minScore
     if (active !== undefined)        updateData.active         = active
-    if (notifyEmail !== undefined)   updateData.notify_email   = notifyEmail
-    if (notifyWebhook !== undefined) updateData.notify_webhook = notifyWebhook
+    if (notifyEmail !== undefined)   updateData.notify_email   = notifyEmail ?? null
+    if (notifyWebhook !== undefined) {
+      if (notifyWebhook) {
+        try {
+          await validateSsrf(notifyWebhook)
+        } catch (err) {
+          return NextResponse.json(
+            { error: 'INVALID_WEBHOOK_URL', detail: err instanceof Error ? err.message : String(err) },
+            { status: 422 }
+          )
+        }
+      }
+      updateData.notify_webhook = notifyWebhook ?? null
+    }
 
     if (criteria !== undefined) {
       updateData.criteria = criteria
-      const embedding = await generateEmbedding(criteria, AITask.EMBED_CRITERIA)
-      updateData.criteria_embedding = embedding
+      // Only regenerate embedding when criteria text actually changed.
+      if (criteria !== existing.criteria) {
+        const embedding = await generateEmbedding(criteria, AITask.EMBED_CRITERIA)
+        updateData.criteria_embedding = embedding
+      }
     }
 
-    const updated = await updateWatch(id, updateData as Parameters<typeof updateWatch>[1])
+    const updated = await updateWatch(id, updateData)
     if (!updated) {
       return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 })
     }
@@ -105,6 +139,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   try {
+    if (!isAuthorized(req)) {
+      return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 })
+    }
+
     const ip = getIp(req)
     const { success } = await getWatchesRatelimit().limit(ip)
     if (!success) {

@@ -69,8 +69,9 @@ export function getWatchesRatelimit(): Ratelimit {
 export function getIp(req: NextRequest): string {
   // On Vercel, x-vercel-forwarded-for is set by Vercel's edge and cannot be
   // spoofed by the client — always prefer it over x-forwarded-for.
+  // Split on comma in case of multi-region routing returning multiple IPs.
   const vercelIp = req.headers.get('x-vercel-forwarded-for')
-  if (vercelIp) return vercelIp.trim()
+  if (vercelIp) return vercelIp.split(',')[0]!.trim()
 
   // Fallback: use the LAST entry (appended by our trusted proxy),
   // not the first (which a client controls).

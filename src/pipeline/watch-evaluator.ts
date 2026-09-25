@@ -4,14 +4,11 @@
 // Stage 2: in-memory filter match + per-watch scoring + notification dispatch
 // Must never throw — the scoring worker swallows errors from this call.
 
-import { db } from '@/db/index'
-import { notificationLog } from '@/db/schema'
 import { getListingById } from '@/db/queries/listings'
 import { getJobById } from '@/db/queries/jobs'
-import { findWatchCandidatesByEmbedding, listWatches } from '@/db/queries/watches'
+import { findWatchCandidatesByEmbedding, findFilterOnlyWatches, listWatches } from '@/db/queries/watches'
 import { scoreItem } from '@/ai/scorer'
 import { sendNotification } from '@/notify/index'
-import { and, eq, gte } from 'drizzle-orm'
 import type { Listing, Job, ScoringContext, Watch } from '@/types'
 import type { DbWatch } from '@/db/queries/watches'
 
@@ -149,26 +146,6 @@ function buildScoringContext(item: Listing | Job): ScoringContext {
   }
 }
 
-// ─── Dedup check: was this (watch, ref) notified in the last 24h? ─────────────
-
-async function wasRecentlyNotified(watchId: string, refId: string): Promise<boolean> {
-  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000)
-
-  const rows = await db
-    .select({ id: notificationLog.id })
-    .from(notificationLog)
-    .where(
-      and(
-        eq(notificationLog.watch_id, watchId),
-        eq(notificationLog.ref_id, refId),
-        gte(notificationLog.sent_at, cutoff)
-      )
-    )
-    .limit(1)
-
-  return rows.length > 0
-}
-
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export async function checkAfterScoring(
@@ -192,12 +169,19 @@ export async function checkAfterScoring(
     let dbWatchCandidates: DbWatch[]
 
     if (item.embedding && item.embedding.length > 0) {
-      dbWatchCandidates = await findWatchCandidatesByEmbedding(
-        item.embedding,
-        refType,
-        50
-      )
+      // Stage 1: vector pre-filter for watches that have criteria_embedding
+      const vectorCandidates = await findWatchCandidatesByEmbedding(item.embedding, refType, 50)
+      // Also include filter-only watches (no criteria_embedding) — they always participate
+      const filterOnlyCandidates = await findFilterOnlyWatches(refType)
+      // Merge, deduplicating by id (shouldn't overlap but be safe)
+      const seen = new Set<string>()
+      for (const w of vectorCandidates) seen.add(w.id)
+      dbWatchCandidates = [
+        ...vectorCandidates,
+        ...filterOnlyCandidates.filter(w => !seen.has(w.id)),
+      ]
     } else {
+      // No item embedding — fall back to all active watches of this type
       dbWatchCandidates = await listWatches(refType)
     }
 
@@ -205,7 +189,11 @@ export async function checkAfterScoring(
 
     const scoringCtx = buildScoringContext(item)
 
-    // Stage 2: For each candidate, apply filter match + scoring + dedup + notify
+    // Stage 2: For each candidate, apply filter match + scoring + dedup + notify.
+    // Sequential loop is intentional (no Promise.all) — one broken watch must not
+    // stop others. NOTE: at 50 candidates with cold Groq calls (~300–800 ms each)
+    // this can take 15–40 s. If this becomes a timeout concern, move evaluation to
+    // a dedicated QStash job (/api/watches/evaluate) with its own maxDuration.
     for (const dbWatch of dbWatchCandidates) {
       try {
         const watch = dbWatchToDomain(dbWatch)
@@ -229,10 +217,6 @@ export async function checkAfterScoring(
 
         if (effectiveScore < watch.minScore) continue
 
-        // Dedup: skip if already notified within last 24h
-        const alreadyNotified = await wasRecentlyNotified(watch.id, refId)
-        if (alreadyNotified) continue
-
         // Build public item shape (strip embedding)
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { embedding: _emb, ...itemPublic } = item as Listing & { embedding: unknown }
@@ -242,12 +226,16 @@ export async function checkAfterScoring(
         console.error('[watch-evaluator] Error processing watch candidate', {
           watchId: dbWatch.id,
           refId,
-          err: watchErr,
+          err: watchErr instanceof Error ? watchErr.message : String(watchErr),
         })
       }
     }
   } catch (err) {
     // Must never throw — the scoring worker swallows errors from this call
-    console.error('[watch-evaluator] Unexpected error in checkAfterScoring', { refId, refType, err })
+    console.error('[watch-evaluator] Unexpected error in checkAfterScoring', {
+      refId,
+      refType,
+      err: err instanceof Error ? err.message : String(err),
+    })
   }
 }

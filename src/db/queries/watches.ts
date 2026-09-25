@@ -74,10 +74,13 @@ export async function findWatchCandidatesByEmbedding(
   // Guard against sql.raw injection: a compromised Ollama endpoint could return
   // non-finite values that would land verbatim inside the raw SQL string.
   if (!embedding.every((x) => typeof x === 'number' && isFinite(x))) {
-    throw new Error('Invalid embedding: array contains non-finite or non-numeric values')
+    // Warn and return empty rather than throw — a compromised HuggingFace response
+    // should not silently swallow the error in the outer try/catch of checkAfterScoring.
+    console.warn('[watches] findWatchCandidatesByEmbedding: invalid embedding (non-finite values), skipping vector search')
+    return []
   }
 
-  const vectorLiteral = `[${embedding.join(',')}]`
+  const vectorLiteral = `[${embedding.map(x => x.toFixed(8)).join(',')}]`
 
   return db
     .select()
@@ -90,6 +93,23 @@ export async function findWatchCandidatesByEmbedding(
       )
     )
     .orderBy(sql`criteria_embedding <=> ${sql.raw(`'${vectorLiteral}'::vector`)}`)
+    .limit(limit)
+}
+
+// Returns all active watches of a given type that have no criteria_embedding.
+// These are filter-only watches — they participate in Stage 2 filter matching
+// but skip Stage 1 vector pre-filter (they have nothing to compare against).
+export async function findFilterOnlyWatches(type: WatchType, limit = 200): Promise<DbWatch[]> {
+  return db
+    .select()
+    .from(watches)
+    .where(
+      and(
+        eq(watches.type, type),
+        eq(watches.active, true),
+        sql`criteria_embedding IS NULL`
+      )
+    )
     .limit(limit)
 }
 

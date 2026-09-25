@@ -4,7 +4,8 @@ import { db } from '../index'
 import { scoreCache } from '../schema'
 
 export function buildCriteriaHash(criteria: string): string {
-  return createHash('sha256').update(criteria).digest('hex')
+  const normalized = criteria.trim().toLowerCase().replace(/\s+/g, ' ')
+  return createHash('sha256').update(normalized).digest('hex')
 }
 
 export async function getScoreCache(

@@ -19,8 +19,13 @@ const REQUIRED_SERVER_VARS = [
   // scraper — not required at startup until BE-05/BE-06 scrapers are deployed.
 ] as const
 
-// Only validate in Node.js runtime (skip during Next.js Edge runtime or client bundles)
-if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'test') {
+// Only validate at runtime — skip during Next.js build phase, Edge runtime, client bundles,
+// and tests. NEXT_PHASE=phase-production-build is set by Next.js during `next build`.
+if (
+  typeof process !== 'undefined' &&
+  process.env.NODE_ENV !== 'test' &&
+  process.env.NEXT_PHASE !== 'phase-production-build'
+) {
   const missing = REQUIRED_SERVER_VARS.filter((key) => !process.env[key])
   if (missing.length > 0) {
     throw new Error(

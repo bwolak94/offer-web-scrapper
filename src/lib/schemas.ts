@@ -71,3 +71,52 @@ export const SnapshotsQuerySchema = z.object({
 })
 
 export type SnapshotsQueryParsed = z.infer<typeof SnapshotsQuerySchema>
+
+// ─── Watches API ──────────────────────────────────────────────────────────────
+
+const ListingFiltersSchema = z.object({
+  q:        z.string().max(500).optional(),
+  category: z.enum(['sale', 'rent_long', 'rent_short']).optional(),
+  priceMin: z.number().finite().optional(),
+  priceMax: z.number().finite().optional(),
+  areaMin:  z.number().finite().optional(),
+  areaMax:  z.number().finite().optional(),
+  rooms:    z.array(z.number().int().positive()).optional(),
+  location: z.string().max(200).optional(),
+  source:   z.array(z.string()).optional(),
+  scoreMin: z.number().finite().min(0).max(100).optional(),
+})
+
+const JobFiltersSchema = z.object({
+  q:              z.string().max(500).optional(),
+  location:       z.string().max(200).optional(),
+  remote:         z.boolean().optional(),
+  salaryMin:      z.number().finite().optional(),
+  salaryMax:      z.number().finite().optional(),
+  employmentType: z.array(z.string()).optional(),
+  techStack:      z.array(z.string()).optional(),
+  source:         z.array(z.string()).optional(),
+  scoreMin:       z.number().finite().min(0).max(100).optional(),
+})
+
+export const WatchCreateSchema = z.object({
+  type:          z.enum(['listing', 'job']),
+  filters:       z.union([ListingFiltersSchema, JobFiltersSchema]).default({}),
+  criteria:      z.string().min(1).max(1000).optional(),
+  minScore:      z.number().int().min(0).max(100).optional().default(70),
+  notifyEmail:   z.string().email().optional(),
+  notifyWebhook: z.string().url().optional(),
+})
+
+export type WatchCreateParsed = z.infer<typeof WatchCreateSchema>
+
+export const WatchUpdateSchema = z.object({
+  filters:       z.union([ListingFiltersSchema, JobFiltersSchema]).optional(),
+  criteria:      z.string().min(1).max(1000).optional(),
+  minScore:      z.number().int().min(0).max(100).optional(),
+  notifyEmail:   z.string().email().optional().nullable(),
+  notifyWebhook: z.string().url().optional().nullable(),
+  active:        z.boolean().optional(),
+})
+
+export type WatchUpdateParsed = z.infer<typeof WatchUpdateSchema>

@@ -210,4 +210,9 @@ async function handler(request: Request): Promise<Response> {
   return Response.json({ type, scored, failed: 0, skipped, total: records.length })
 }
 
-export const POST = verifySignatureAppRouter(handler)
+// Defer verifySignatureAppRouter(handler) to request time so the QStash SDK does not
+// read QSTASH_CURRENT_SIGNING_KEY / QSTASH_NEXT_SIGNING_KEY at module evaluation
+// (which runs during `next build` when env vars are not yet available).
+export function POST(request: Request): Promise<Response> {
+  return verifySignatureAppRouter(handler)(request)
+}

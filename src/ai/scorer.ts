@@ -87,9 +87,13 @@ export async function scoreItem(
         { role: 'user',   content: userMessage },
       ],
     })
-    rawContent = completion.choices[0]?.message?.content ?? ''
+    const content = completion.choices[0]?.message?.content
+    if (!content) {
+      throw new Error(`[scorer] Groq returned empty content for model ${SCORING_MODEL}`)
+    }
+    rawContent = content
   } catch (err) {
-    // Network/API errors (429, 503, timeouts) — bubble up so the caller can retry
+    // Network/API errors (429, 503, timeouts, empty response) — bubble up so the caller can retry
     throw err
   }
 

@@ -1,4 +1,5 @@
 import { verifySignatureAppRouter } from '@upstash/qstash/nextjs'
+import { Client as QStashClient } from '@upstash/qstash'
 import { z } from 'zod'
 import { inArray, getTableColumns } from 'drizzle-orm'
 import { db } from '@/db'
@@ -6,7 +7,7 @@ import { listings, jobs } from '@/db/schema'
 import { updateListingScore } from '@/db/queries/listings'
 import { updateJobScore }     from '@/db/queries/jobs'
 import { scoreItem }          from '@/ai/scorer'
-import { checkAfterScoring }  from '@/pipeline/watch-evaluator'
+import { env }                from '@/lib/env'
 import type { ScoringContext } from '@/types'
 
 export const maxDuration = 300
@@ -100,10 +101,11 @@ async function scoreRecords(
   records:  (ListingRow | JobRow)[],
   type:     'listing' | 'job',
   criteria: string
-): Promise<{ scored: number; failed: number; skipped: number }> {
+): Promise<{ scored: number; failed: number; skipped: number; scoredItems: Array<{ id: string; score: number }> }> {
   let scored  = 0
   let failed  = 0
   let skipped = 0
+  const scoredItems: Array<{ id: string; score: number }> = []
 
   for (let i = 0; i < records.length; i += CONCURRENCY) {
     const batch = records.slice(i, i + CONCURRENCY)
@@ -129,11 +131,7 @@ async function scoreRecords(
           }
 
           scored++
-
-          // Fire-and-forget — watch eval errors must NOT fail the scoring result
-          checkAfterScoring(id, type, result.score).catch((err) => {
-            console.error('[score-worker] watch eval error', { id, type, err })
-          })
+          scoredItems.push({ id, score: result.score })
         } catch (err) {
           // Log and count — do NOT re-throw inside Promise.allSettled.
           // failed > 0 after all batches → handler returns 500 → QStash retries.
@@ -154,7 +152,7 @@ async function scoreRecords(
     }
   }
 
-  return { scored, failed, skipped }
+  return { scored, failed, skipped, scoredItems }
 }
 
 // ---------------------------------------------------------------------------
@@ -197,7 +195,24 @@ async function handler(request: Request): Promise<Response> {
     return Response.json({ type, scored: 0, skipped: records.length, failed: 0, total: records.length })
   }
 
-  const { scored, failed, skipped } = await scoreRecords(unscored, type, criteria)
+  const { scored, failed, skipped, scoredItems } = await scoreRecords(unscored, type, criteria)
+
+  // Enqueue watch evaluation for each successfully scored item — each runs in its
+  // own Lambda (maxDuration=300) via /api/worker/evaluate, avoiding fire-and-forget
+  // truncation when the score worker returns its HTTP 200 to QStash.
+  if (scoredItems.length > 0) {
+    const qstash  = new QStashClient({ token: env.QSTASH_TOKEN })
+    const evalUrl = `${env.NEXT_PUBLIC_APP_URL}/api/worker/evaluate`
+    await Promise.allSettled(
+      scoredItems.map(({ id, score }) =>
+        qstash.publishJSON({
+          url:     evalUrl,
+          body:    { refId: id, refType: type, score },
+          retries: 1,
+        })
+      )
+    )
+  }
 
   if (failed > 0) {
     // Partial failure → 500 so QStash retries; already-scored items are skipped on retry

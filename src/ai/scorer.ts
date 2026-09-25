@@ -74,24 +74,23 @@ export async function scoreItem(
 
   const groq = getGroqClient()
 
-  let rawContent: string
-  try {
-    const completion = await groq.chat.completions.create({
-      model:           SCORING_MODEL,
-      max_tokens:      120,
-      temperature:     0.0,
-      seed:            42,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user',   content: userMessage },
-      ],
-    })
-    rawContent = completion.choices[0]?.message?.content ?? ''
-  } catch (err) {
-    // Network/API errors (429, 503, timeouts) — bubble up so the caller can retry
-    throw err
+  // Network/API errors (429, 503, timeouts, empty response) bubble up to the caller for retry
+  const completion = await groq.chat.completions.create({
+    model:           SCORING_MODEL,
+    max_tokens:      120,
+    temperature:     0.0,
+    seed:            42,
+    response_format: { type: 'json_object' },
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user',   content: userMessage },
+    ],
+  })
+  const content = completion.choices[0]?.message?.content
+  if (!content) {
+    throw new Error(`[scorer] Groq returned empty content for model ${SCORING_MODEL}`)
   }
+  const rawContent = content
 
   let score: number
   let reason: string | null

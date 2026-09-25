@@ -171,7 +171,7 @@ export interface ScoringContext {
   location:        string | null
   salaryMin?:      number | null      // jobs only
   salaryMax?:      number | null      // jobs only
-  currency?:       string             // jobs only
+  currency?:       string             // listings + jobs (used in price/salary formatting)
   techStack?:      string[]           // jobs only
   remote?:         boolean | null     // jobs only
   employmentType?: string | null      // jobs only

@@ -10,9 +10,15 @@ interface LocationInputProps {
 
 export function LocationInput({ value, onChange }: LocationInputProps) {
   const [local, setLocal] = useState(value)
+  const [prevValue, setPrevValue] = useState(value)
 
-  // Sync with external value (e.g., on filter reset)
-  useEffect(() => { setLocal(value) }, [value])
+  // Sync external value during render (e.g., on filter reset).
+  // Calling setState during render is the React-recommended pattern for
+  // derived state — avoids the extra render cycle of a sync useEffect.
+  if (value !== prevValue) {
+    setPrevValue(value)
+    setLocal(value)
+  }
 
   useEffect(() => {
     const timer = setTimeout(() => {

@@ -4,15 +4,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ScoreRequestSchema } from '@/lib/schemas'
 import { getScoreRatelimit, getIp } from '@/lib/ratelimit'
-import { scoreItem } from '@/ai/scorer'
-import { buildCriteriaHash, getScoreCache, setScoreCache } from '@/db/queries/score-cache'
+import { scoreItem, buildScorerCriteriaHash } from '@/ai/scorer'
+import { getScoreCache } from '@/db/queries/score-cache'
 import { getMostRecentScoredListing, getListingByIdPublic } from '@/db/queries/listings'
 import { getMostRecentScoredJob, getJobByIdPublic } from '@/db/queries/jobs'
 import type { ScoringContext, ListingPublic, JobPublic } from '@/types'
 
 export const maxDuration = 30
-
-const SCORING_MODEL = process.env.SCORING_MODEL ?? 'llama-3.1-8b-instant'
 
 // ─── ScoringContext builders ──────────────────────────────────────────────────
 
@@ -124,7 +122,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     // ── Cache check ─────────────────────────────────────────────────────────
-    const criteriaHash = buildCriteriaHash(criteria)
+    // Use buildScorerCriteriaHash — the same function scoreItem uses internally —
+    // so the cache key is always identical between the pre-check here and the
+    // write that scoreItem performs.  buildCriteriaHash (score-cache.ts) was an
+    // identical duplicate and has been removed from this import.
+    const criteriaHash = buildScorerCriteriaHash(criteria)
     const cached = await getScoreCache(recordId, type, criteriaHash)
     if (cached) {
       return NextResponse.json({
@@ -136,6 +138,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     // ── Score ───────────────────────────────────────────────────────────────
+    // scoreItem handles its own cache write internally — no second setScoreCache
+    // call here.  A duplicate write would cause a harmless no-op (onConflictDoNothing)
+    // on the first concurrent request but a race on the second; removing it keeps
+    // the write path as a single responsibility inside scorer.ts.
     let score: number
     let reason: string | null
 
@@ -147,16 +153,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       console.error('[POST /api/score] Scoring failed', scoringErr)
       return NextResponse.json({ error: 'SERVICE_UNAVAILABLE' }, { status: 503 })
     }
-
-    // ── Persist to cache ────────────────────────────────────────────────────
-    await setScoreCache({
-      refId:        recordId,
-      refType:      type,
-      criteriaHash,
-      model:        SCORING_MODEL,
-      score,
-      reason:       reason ?? undefined,
-    })
 
     return NextResponse.json({
       id:        recordId,

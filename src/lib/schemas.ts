@@ -117,7 +117,9 @@ export const WatchUpdateSchema = z.object({
   criteria:      z.string().min(1).max(1000).optional(),
   minScore:      z.number().int().min(0).max(100).optional(),
   notifyEmail:   z.string().email().optional().nullable(),
-  notifyWebhook: z.string().url().optional().nullable(),
+  notifyWebhook: z.string().url().refine(u => u == null || u.startsWith('https://'), {
+    message: 'Webhook URL must use HTTPS',
+  }).optional().nullable(),
   active:        z.boolean().optional(),
 })
 

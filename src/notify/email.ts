@@ -32,7 +32,10 @@ export async function sendEmailNotification(
   const resend = new Resend(env.RESEND_API_KEY)
 
   const itemTitle = escapeHtml(item.title)
-  const subject   = `New match for your watch: ${item.title.slice(0, 100)}`
+  // Strip control characters from the subject to prevent email header injection
+  // via a malicious scraped title containing \r\n sequences.
+  const safeSubjectTitle = item.title.slice(0, 100).replace(/[\r\n\0]/g, '')
+  const subject   = `New match for your watch: ${safeSubjectTitle}`
 
   const scoreSection = item.aiScore != null
     ? `<p><strong>AI Score:</strong> ${item.aiScore}/100</p>`

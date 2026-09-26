@@ -1,5 +1,6 @@
 import type { Scraper } from '@/types'
 import { RealEstateSource, JobSource } from '@/types'
+import { scrapeOtodom } from './real-estate/otodom'
 
 const VALID_SOURCES = new Set<string>([
   ...Object.values(RealEstateSource),
@@ -19,3 +20,7 @@ export function registerScraper(source: string, scraper: Scraper): void {
   }
   scrapers[source] = scraper
 }
+
+// ─── Scraper registrations ────────────────────────────────────────────────────
+
+registerScraper('otodom', { scrape: scrapeOtodom })

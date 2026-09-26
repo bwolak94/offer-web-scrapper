@@ -49,12 +49,7 @@ export async function runListingPipeline(items: ScrapedListing[]): Promise<Pipel
 
   for (const [i, entry] of toProcess.entries()) {
     const { item, dedup } = entry
-    const embedding = embeddings[i]
-
-    if (!embedding) {
-      result.skipped++
-      continue
-    }
+    const embedding = embeddings[i] ?? null
 
     try {
       if (dedup.status === 'changed' && dedup.existingId) {
@@ -134,12 +129,7 @@ export async function runJobPipeline(items: ScrapedJob[]): Promise<PipelineResul
 
   for (const [i, entry] of toProcess.entries()) {
     const { item, dedup } = entry
-    const embedding = embeddings[i]
-
-    if (!embedding) {
-      result.skipped++
-      continue
-    }
+    const embedding = embeddings[i] ?? null
 
     try {
       if (dedup.status === 'changed' && dedup.existingId) {

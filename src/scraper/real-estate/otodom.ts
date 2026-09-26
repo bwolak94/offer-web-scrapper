@@ -62,12 +62,12 @@ const OtodomItemSchema = z.object({
       district: z.object({ name: z.string() }).optional().nullable(),
     }).nullable(),
     mapDetails: z.object({
-      lat: z.number().nullable(),
-      lng: z.number().nullable(),
-    }).nullable(),
-  }).nullable(),
+      lat: z.number().optional().nullable(),
+      lng: z.number().optional().nullable(),
+    }).passthrough().nullable(),
+  }).passthrough().nullable(),
   images: z.array(z.object({
-    large: z.string().url(),
+    large: z.string(),
   })).default([]),
 }).passthrough()
 
@@ -78,9 +78,9 @@ const OtodomNextDataSchema = z.object({
         searchAds: z.object({
           items: z.array(OtodomItemSchema),
           pagination: z.object({
-            page:       z.number(),
-            totalPages: z.number(),
-          }).optional(),
+            currentPage: z.number(),
+            totalPages:  z.number(),
+          }).passthrough().optional(),
         }),
       }),
     }),
@@ -190,7 +190,6 @@ export async function scrapeOtodom(
   })
 
   const totalPages = pagination?.totalPages ?? 1
-  // Guard: never report hasMore when items is empty — prevents infinite pagination on errors
   const hasMore = items.length > 0 && page < totalPages
 
   return {

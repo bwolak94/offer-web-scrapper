@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { WatchList } from './WatchList'
 import type { Watch } from '@/types'
@@ -34,9 +35,9 @@ export function WatchListContainer() {
     return (
       <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
         No watches yet.{' '}
-        <a href="/watches/new" className="underline">
+        <Link href="/watches/new" className="underline">
           Create your first watch
-        </a>{' '}
+        </Link>{' '}
         to get notified about new listings.
       </div>
     )

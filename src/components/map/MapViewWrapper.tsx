@@ -1,6 +1,7 @@
-// This file is a Server Component (no 'use client' directive).
-// The dynamic() call with ssr:false ensures MapView (which uses Leaflet browser APIs)
-// is never executed on the server — SSR would throw `window is not defined`.
+'use client'
+// Next.js 16 requires 'use client' when using dynamic({ ssr: false }).
+// This remains a thin wrapper — it adds no state or hooks of its own.
+// MapView (Leaflet) is deferred to the browser via dynamic import.
 
 import dynamic from 'next/dynamic'
 import { Skeleton } from '@/components/ui/skeleton'

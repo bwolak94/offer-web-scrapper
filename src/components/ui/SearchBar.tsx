@@ -58,6 +58,9 @@ export function SearchBar({ placeholder = 'Search listings and jobs…' }: Searc
   // Re-sync input when `q` is cleared externally (e.g. FilterBar "Reset" deletes all params)
   useEffect(() => {
     const urlQ = new URLSearchParams(searchParamsString).get('q') ?? ''
+    // Intentional: sync input when URL is cleared externally (e.g. FilterBar Reset).
+    // The setState is guarded by the inequality check — no cascade risk.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (urlQ !== value) setValue(urlQ)
     // intentionally only re-run when URL changes, not when local value changes
     // eslint-disable-next-line react-hooks/exhaustive-deps

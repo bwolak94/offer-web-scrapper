@@ -4,11 +4,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 interface LocationInputProps {
-  value: string
-  onChange: (value: string) => void
+  value:        string
+  onChange:     (value: string) => void
+  placeholder?: string
 }
 
-export function LocationInput({ value, onChange }: LocationInputProps) {
+export function LocationInput({ value, onChange, placeholder = 'City, district...' }: LocationInputProps) {
   const [local, setLocal] = useState(value)
   const [prevValue, setPrevValue] = useState(value)
 
@@ -33,7 +34,7 @@ export function LocationInput({ value, onChange }: LocationInputProps) {
       <Input
         value={local}
         onChange={(e) => setLocal(e.target.value)}
-        placeholder="City, district..."
+        placeholder={placeholder}
         className="h-8 w-36 text-xs"
       />
     </div>

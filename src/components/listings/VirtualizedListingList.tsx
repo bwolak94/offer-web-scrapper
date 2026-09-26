@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef } from 'react'
+import React, { useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { LoadMoreSentinel } from './LoadMoreSentinel'
 import type { ListingSummary } from '@/types'
@@ -10,6 +10,7 @@ interface VirtualizedListingListProps {
   hasNextPage:        boolean
   isFetchingNextPage: boolean
   fetchNextPage:      () => void
+  renderItem:         (item: ListingSummary) => React.ReactNode
 }
 
 export function VirtualizedListingList({
@@ -17,6 +18,7 @@ export function VirtualizedListingList({
   hasNextPage,
   isFetchingNextPage,
   fetchNextPage,
+  renderItem,
 }: VirtualizedListingListProps) {
   const parentRef = useRef<HTMLDivElement>(null)
   const count = items.length + (hasNextPage ? 1 : 0)
@@ -55,13 +57,7 @@ export function VirtualizedListingList({
                 isLoading={isFetchingNextPage}
               />
             ) : (
-              // Safe: virtualizer guarantees index < items.length (count guards above)
-              <div className="mb-2 rounded-lg border bg-card p-4">
-                <p className="font-medium">{items[virtualRow.index]?.title}</p>
-                <p className="text-sm text-muted-foreground">
-                  {items[virtualRow.index]?.price?.toLocaleString('pl-PL')} PLN
-                </p>
-              </div>
+              renderItem(items[virtualRow.index]!)
             )}
           </div>
         ))}

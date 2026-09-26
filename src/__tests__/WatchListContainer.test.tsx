@@ -78,7 +78,7 @@ describe('WatchListContainer', () => {
 
   it('renders WatchList when watches are returned', () => {
     mockUseQuery.mockReturnValue({
-      data: [makeRawWatch(), makeRawWatch({ id: 'watch-2' })] as Watch[],
+      data: [makeRawWatch(), makeRawWatch({ id: 'watch-2' })] as unknown as Watch[],
       isLoading: false,
       error: null,
     })
@@ -93,7 +93,7 @@ describe('WatchListContainer', () => {
       makeRawWatch({ id: 'w-1' }),
       makeRawWatch({ id: 'w-2' }),
       makeRawWatch({ id: 'w-3' }),
-    ] as Watch[]
+    ] as unknown as Watch[]
 
     mockUseQuery.mockReturnValue({ data: watches, isLoading: false, error: null })
 
@@ -174,7 +174,7 @@ describe('WatchListContainer', () => {
     render(<WatchListContainer />)
 
     expect(lastWatchListProps).not.toBeNull()
-    const passedWatch = lastWatchListProps!.watches[0]
+    const passedWatch = lastWatchListProps!.watches[0]!
     expect(passedWatch.createdAt).toBeInstanceOf(Date)
     expect(passedWatch.updatedAt).toBeInstanceOf(Date)
     expect(passedWatch.createdAt.toISOString()).toBe(rawCreatedAt)
@@ -222,10 +222,10 @@ describe('WatchListContainer', () => {
     const result = await capturedQueryFn!()
 
     expect(result).toHaveLength(1)
-    expect(result[0].createdAt).toBeInstanceOf(Date)
-    expect(result[0].updatedAt).toBeInstanceOf(Date)
-    expect(result[0].createdAt.toISOString()).toBe(rawCreatedAt)
-    expect(result[0].updatedAt.toISOString()).toBe(rawUpdatedAt)
+    expect(result[0]!.createdAt).toBeInstanceOf(Date)
+    expect(result[0]!.updatedAt).toBeInstanceOf(Date)
+    expect(result[0]!.createdAt.toISOString()).toBe(rawCreatedAt)
+    expect(result[0]!.updatedAt.toISOString()).toBe(rawUpdatedAt)
   })
 
   it('fetchWatches throws when the response is not ok', async () => {

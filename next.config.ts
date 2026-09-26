@@ -27,10 +27,20 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: '*.gratka.pl',
       },
+      // Nocleg.pl CDN
+      {
+        protocol: 'https',
+        hostname: '*.nocleg.pl',
+      },
+      // Pracuj.pl CDN
+      {
+        protocol: 'https',
+        hostname: '*.pracuj.pl',
+      },
     ],
   },
   // Prevent edge-runtime bundling of Node-only packages used in API routes
-  serverExternalPackages: ['cheerio', 'playwright-core'],
+  serverExternalPackages: ['cheerio', 'playwright-core', 'puppeteer-core', 'JSONStream'],
 }
 
 export default nextConfig

@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { SearchParamsSchema } from '@/lib/schemas'
-import { getSearchRatelimit, getIp } from '@/lib/ratelimit'
+import { checkSearchLimit, getIp } from '@/lib/ratelimit'
 import { getFilteredListings, countFilteredListings } from '@/db/queries/listings'
 import { getFilteredJobs, countFilteredJobs } from '@/db/queries/jobs'
 import { searchListings, searchJobs } from '@/db/queries/search'
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   try {
     // ── Rate limit ────────────────────────────────────────────────────────────
     const ip = getIp(req)
-    const { success } = await getSearchRatelimit().limit(ip)
+    const { success } = await checkSearchLimit(ip)
     if (!success) {
       return NextResponse.json({ error: 'RATE_LIMITED' }, { status: 429 })
     }

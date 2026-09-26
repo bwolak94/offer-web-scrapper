@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { ScoreRequestSchema } from '@/lib/schemas'
-import { getScoreRatelimit, getIp } from '@/lib/ratelimit'
+import { checkScoreLimit, getIp } from '@/lib/ratelimit'
 import { scoreItem, buildScorerCriteriaHash } from '@/ai/scorer'
 import { getScoreCache } from '@/db/queries/score-cache'
 import { getMostRecentScoredListing, getListingByIdPublic } from '@/db/queries/listings'
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     // ── Rate limit ──────────────────────────────────────────────────────────
     const ip = getIp(req)
-    const { success } = await getScoreRatelimit().limit(ip)
+    const { success } = await checkScoreLimit(ip)
     if (!success) {
       return NextResponse.json({ error: 'RATE_LIMITED' }, { status: 429 })
     }

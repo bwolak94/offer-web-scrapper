@@ -23,6 +23,7 @@ export function VirtualizedListingList({
   const parentRef = useRef<HTMLDivElement>(null)
   const count = items.length + (hasNextPage ? 1 : 0)
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const rowVirtualizer = useVirtualizer({
     count,
     getScrollElement: () => parentRef.current,
@@ -31,7 +32,7 @@ export function VirtualizedListingList({
   })
 
   return (
-    <div ref={parentRef} style={{ height: '100%', overflowY: 'auto' }}>
+    <div ref={parentRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
       <div
         style={{
           height: `${rowVirtualizer.getTotalSize()}px`,

@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getJobByIdPublic } from '@/db/queries/jobs'
-import { getSearchRatelimit, getIp } from '@/lib/ratelimit'
+import { checkSearchLimit, getIp } from '@/lib/ratelimit'
 
 export const maxDuration = 15
 
@@ -15,7 +15,7 @@ export async function GET(
 ): Promise<NextResponse> {
   try {
     const ip = getIp(req)
-    const { success } = await getSearchRatelimit().limit(ip)
+    const { success } = await checkSearchLimit(ip)
     if (!success) {
       return NextResponse.json({ error: 'RATE_LIMITED' }, { status: 429 })
     }

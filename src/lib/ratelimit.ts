@@ -5,8 +5,15 @@
 
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
-import { env } from '@/lib/env'
 import type { NextRequest } from 'next/server'
+
+// ─── No-op result returned in dev when Upstash is not configured ──────────────
+
+const RATELIMIT_SKIP = { success: true, limit: 0, remaining: 0, reset: 0 } as const
+
+function isUpstashConfigured(): boolean {
+  return !!(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
+}
 
 // ─── Lazy Redis singleton ─────────────────────────────────────────────────────
 
@@ -15,8 +22,8 @@ let _redis: Redis | null = null
 function getRedis(): Redis {
   if (!_redis) {
     _redis = new Redis({
-      url:   env.UPSTASH_REDIS_REST_URL,
-      token: env.UPSTASH_REDIS_REST_TOKEN,
+      url:   process.env.UPSTASH_REDIS_REST_URL!,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN!,
     })
   }
   return _redis
@@ -28,7 +35,7 @@ let _searchRatelimit: Ratelimit | null = null
 let _scoreRatelimit:  Ratelimit | null = null
 let _watchesRatelimit: Ratelimit | null = null
 
-export function getSearchRatelimit(): Ratelimit {
+function getSearchRatelimit(): Ratelimit {
   if (!_searchRatelimit) {
     _searchRatelimit = new Ratelimit({
       redis:     getRedis(),
@@ -40,7 +47,7 @@ export function getSearchRatelimit(): Ratelimit {
   return _searchRatelimit
 }
 
-export function getScoreRatelimit(): Ratelimit {
+function getScoreRatelimit(): Ratelimit {
   if (!_scoreRatelimit) {
     _scoreRatelimit = new Ratelimit({
       redis:     getRedis(),
@@ -52,7 +59,7 @@ export function getScoreRatelimit(): Ratelimit {
   return _scoreRatelimit
 }
 
-export function getWatchesRatelimit(): Ratelimit {
+function getWatchesRatelimit(): Ratelimit {
   if (!_watchesRatelimit) {
     _watchesRatelimit = new Ratelimit({
       redis:     getRedis(),
@@ -62,6 +69,25 @@ export function getWatchesRatelimit(): Ratelimit {
     })
   }
   return _watchesRatelimit
+}
+
+// ─── Public API — skips Redis when Upstash is not configured ─────────────────
+
+type RatelimitResult = { success: boolean; limit: number; remaining: number; reset: number }
+
+export async function checkSearchLimit(ip: string): Promise<RatelimitResult> {
+  if (!isUpstashConfigured()) return RATELIMIT_SKIP
+  return getSearchRatelimit().limit(ip)
+}
+
+export async function checkScoreLimit(ip: string): Promise<RatelimitResult> {
+  if (!isUpstashConfigured()) return RATELIMIT_SKIP
+  return getScoreRatelimit().limit(ip)
+}
+
+export async function checkWatchesLimit(ip: string): Promise<RatelimitResult> {
+  if (!isUpstashConfigured()) return RATELIMIT_SKIP
+  return getWatchesRatelimit().limit(ip)
 }
 
 // ─── IP extraction helper ─────────────────────────────────────────────────────

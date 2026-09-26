@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { WatchCreateSchema } from '@/lib/schemas'
 import { createWatch, listWatches } from '@/db/queries/watches'
-import { getWatchesRatelimit, getIp } from '@/lib/ratelimit'
+import { checkWatchesLimit, getIp } from '@/lib/ratelimit'
 import { generateEmbedding } from '@/ai/embeddings'
 import { AITask } from '@/ai/client'
 import { validateSsrf } from '@/lib/ssrf'
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }
 
     const ip = getIp(req)
-    const { success } = await getWatchesRatelimit().limit(ip)
+    const { success } = await checkWatchesLimit(ip)
     if (!success) {
       return NextResponse.json({ error: 'RATE_LIMITED' }, { status: 429 })
     }
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const ip = getIp(req)
-    const { success } = await getWatchesRatelimit().limit(ip)
+    const { success } = await checkWatchesLimit(ip)
     if (!success) {
       return NextResponse.json({ error: 'RATE_LIMITED' }, { status: 429 })
     }

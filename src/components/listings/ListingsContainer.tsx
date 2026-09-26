@@ -93,6 +93,15 @@ export function ListingsContainer({ category }: ListingsContainerProps) {
     return <ListSkeleton />
   }
 
+  if (allItems.length === 0) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-2 text-muted-foreground">
+        <p className="text-sm">No listings found.</p>
+        <p className="text-xs">Try adjusting your filters or check back after scraping runs.</p>
+      </div>
+    )
+  }
+
   return (
     <VirtualizedListingList
       items={allItems}

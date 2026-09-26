@@ -4,14 +4,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { SnapshotsQuerySchema } from '@/lib/schemas'
 import { getSnapshotsByRef } from '@/db/queries/snapshots'
-import { getSearchRatelimit, getIp } from '@/lib/ratelimit'
+import { checkSearchLimit, getIp } from '@/lib/ratelimit'
 
 export const maxDuration = 15
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   try {
     const ip = getIp(req)
-    const { success } = await getSearchRatelimit().limit(ip)
+    const { success } = await checkSearchLimit(ip)
     if (!success) {
       return NextResponse.json({ error: 'RATE_LIMITED' }, { status: 429 })
     }

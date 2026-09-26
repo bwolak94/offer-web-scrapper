@@ -2,5 +2,6 @@
   "crons": [
     { "path": "/api/scrape/real-estate", "schedule": "*/30 * * * *" },
     { "path": "/api/scrape/jobs",        "schedule": "0 */2 * * *"  }
-  ]
+  ],
+  "ignoreCommand": "[ \"$VERCEL_GIT_COMMIT_REF\" = \"dev\" ]"
 }

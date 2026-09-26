@@ -1,0 +1,2 @@
+DROP INDEX "notification_log_unique_watch_ref_idx";--> statement-breakpoint
+CREATE UNIQUE INDEX "notification_log_unique_watch_ref_idx" ON "notification_log" USING btree ("watch_id","ref_id","ref_type","channel");

@@ -1,0 +1,19 @@
+#!/bin/sh
+# Block commits that include .env files
+
+# Check staged files for .env patterns
+STAGED_ENV=$(git diff --cached --name-only | grep -E '(^|/)\.(env|env\.[a-z]+)$' || true)
+
+if [ -n "$STAGED_ENV" ]; then
+  echo ""
+  echo "ERROR: Attempted to commit environment file(s):"
+  echo "$STAGED_ENV"
+  echo ""
+  echo "Environment files contain secrets and must NEVER be committed."
+  echo "Remove them from staging: git reset HEAD <file>"
+  echo ""
+  exit 1
+fi
+
+# Run lint-staged (ESLint + type checks on changed files)
+npx lint-staged

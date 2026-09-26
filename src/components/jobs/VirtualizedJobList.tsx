@@ -2,52 +2,52 @@
 
 import React, { useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { LoadMoreSentinel } from './LoadMoreSentinel'
-import type { ListingSummary } from '@/types'
+import { LoadMoreSentinel } from '@/components/listings/LoadMoreSentinel'
+import type { JobSummary } from '@/types'
 
-interface VirtualizedListingListProps {
-  items:              ListingSummary[]
+interface VirtualizedJobListProps {
+  items:              JobSummary[]
   hasNextPage:        boolean
   isFetchingNextPage: boolean
   fetchNextPage:      () => void
-  renderItem:         (item: ListingSummary) => React.ReactNode
+  // Slot prop — NEVER import JobCard directly here (RSC boundary rule)
+  renderItem:         (job: JobSummary) => React.ReactNode
 }
 
-export function VirtualizedListingList({
+export function VirtualizedJobList({
   items,
   hasNextPage,
   isFetchingNextPage,
   fetchNextPage,
   renderItem,
-}: VirtualizedListingListProps) {
+}: VirtualizedJobListProps) {
   const parentRef = useRef<HTMLDivElement>(null)
   const count = items.length + (hasNextPage ? 1 : 0)
 
   const rowVirtualizer = useVirtualizer({
     count,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 160,
+    estimateSize: () => 120,
     overscan: 5,
   })
 
   return (
     <div ref={parentRef} style={{ height: '100%', overflowY: 'auto' }}>
-      <div
-        style={{
-          height: `${rowVirtualizer.getTotalSize()}px`,
-          position: 'relative',
-        }}
-      >
+      {/*
+        CRITICAL: position:relative on inner div + position:absolute on each row.
+        All three positioning rules must hold or cards stack at y=0.
+      */}
+      <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: 'relative' }}>
         {rowVirtualizer.getVirtualItems().map((virtualRow) => (
           <div
             key={virtualRow.key}
             data-index={virtualRow.index}
             ref={rowVirtualizer.measureElement}
             style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
+              position:  'absolute',
+              top:       0,
+              left:      0,
+              width:     '100%',
               transform: `translateY(${virtualRow.start}px)`,
             }}
           >

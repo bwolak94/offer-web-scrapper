@@ -155,6 +155,17 @@ export interface Snapshot {
   snappedAt: Date
 }
 
+// ─── MapViewItem ──────────────────────────────────────────────────────────────
+// Shared between MapViewWrapper and MapView — avoids duplicating the inline type.
+
+export interface MapViewItem {
+  id:    string
+  lat:   number
+  lng:   number
+  title: string
+  price: number | null
+}
+
 // ─── ScoringContext ───────────────────────────────────────────────────────────
 // Narrow type — only fields the scorer actually reads.
 // criteria is a separate scorer function parameter, NOT a field here.

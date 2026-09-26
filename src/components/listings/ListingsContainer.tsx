@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { VirtualizedListingList } from './VirtualizedListingList'
 import { ListSkeleton } from './ListSkeleton'
+import { ListingCard } from './ListingCard'
 import type { ListingCategory, ListingSummary, ListingFilters, RealEstateSource, SortOrder } from '@/types'
 
 const VALID_RE_SOURCES: RealEstateSource[] = ['otodom', 'olx', 'morizon', 'gratka']
@@ -98,6 +99,7 @@ export function ListingsContainer({ category }: ListingsContainerProps) {
       hasNextPage={!!hasNextPage}
       isFetchingNextPage={isFetchingNextPage}
       fetchNextPage={fetchNextPage}
+      renderItem={(item) => <ListingCard key={item.id} listing={item} />}
     />
   )
 }

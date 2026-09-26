@@ -76,6 +76,7 @@ describe('VirtualizedListingList', () => {
         hasNextPage={false}
         isFetchingNextPage={false}
         fetchNextPage={vi.fn()}
+        renderItem={(item) => <div key={item.id}>{item.title}</div>}
       />
     )
     expect(getByText('Mieszkanie Warszawa')).toBeDefined()
@@ -89,6 +90,7 @@ describe('VirtualizedListingList', () => {
         hasNextPage={false}
         isFetchingNextPage={false}
         fetchNextPage={vi.fn()}
+        renderItem={(item) => <div key={item.id}>{item.title}</div>}
       />
     )
     // DOM: container > div(scroll) > div(position:relative) > div(position:absolute rows)
@@ -103,6 +105,7 @@ describe('VirtualizedListingList', () => {
         hasNextPage={false}
         isFetchingNextPage={false}
         fetchNextPage={vi.fn()}
+        renderItem={(item) => <div key={item.id}>{item.title}</div>}
       />
     )
     // The position:relative inner div is the direct child of the scroll container.
@@ -124,6 +127,7 @@ describe('VirtualizedListingList', () => {
         hasNextPage={true}
         isFetchingNextPage={false}
         fetchNextPage={vi.fn()}
+        renderItem={(item) => <div key={item.id}>{item.title}</div>}
       />
     )
     expect(container.querySelector('div')).toBeDefined()

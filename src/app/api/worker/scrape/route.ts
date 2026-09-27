@@ -5,6 +5,7 @@ import { env } from '@/lib/env'
 import { runListingPipeline, runJobPipeline } from '@/pipeline'
 import { getScraper } from '@/scraper'
 import type { ScrapedListing, ScrapedJob } from '@/types'
+import { logger } from '@/lib/logger'
 
 export const maxDuration = 300
 
@@ -40,8 +41,8 @@ async function handler(request: Request): Promise<Response> {
     )
   }
 
+  const startMs = Date.now()
   try {
-    const startMs = Date.now()
     const scraperResult = await scraper.scrape(category, page)
 
     let pipelineResult
@@ -50,6 +51,17 @@ async function handler(request: Request): Promise<Response> {
     } else {
       pipelineResult = await runListingPipeline(scraperResult.items as ScrapedListing[])
     }
+
+    logger.info('scrape_complete', {
+      source,
+      category,
+      items_scraped: scraperResult.items.length,
+      items_new:     pipelineResult.inserted,
+      items_updated: pipelineResult.updated,
+      items_skipped: pipelineResult.skipped,
+      duration_ms:   Date.now() - startMs,
+      worker:        'scrape',
+    })
 
     // Instantiate one client and reuse for both potential publishes
     const qstash     = new QStashClient({ token: env.QSTASH_TOKEN })
@@ -84,7 +96,14 @@ async function handler(request: Request): Promise<Response> {
       durationMs: Date.now() - startMs,
     })
   } catch (err) {
-    console.error('[worker/scrape] Unexpected error', { source, category, page, err })
+    logger.error('scrape_failed', {
+      source,
+      category,
+      error:       err instanceof Error ? err.message : String(err),
+      error_stack: err instanceof Error ? err.stack   : undefined,
+      duration_ms: Date.now() - startMs,
+      worker:      'scrape',
+    })
     return Response.json(
       { error: { code: 'INTERNAL_ERROR', message: 'An unexpected error occurred' } },
       { status: 500 }

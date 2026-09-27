@@ -9,6 +9,7 @@ import { updateJobScore }     from '@/db/queries/jobs'
 import { scoreItem }          from '@/ai/scorer'
 import { env }                from '@/lib/env'
 import type { ScoringContext } from '@/types'
+import { logger } from '@/lib/logger'
 
 export const maxDuration = 300
 
@@ -44,9 +45,11 @@ async function loadRecords(
   type: 'listing' | 'job'
 ): Promise<ListingRow[] | JobRow[]> {
   if (type === 'listing') {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { embedding: _emb, ...cols } = getTableColumns(listings)
     return db.select(cols).from(listings).where(inArray(listings.id, ids)) as Promise<ListingRow[]>
   } else {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { embedding: _emb, ...cols } = getTableColumns(jobs)
     return db.select(cols).from(jobs).where(inArray(jobs.id, ids)) as Promise<JobRow[]>
   }
@@ -136,7 +139,13 @@ async function scoreRecords(
           // Log and count — do NOT re-throw inside Promise.allSettled.
           // failed > 0 after all batches → handler returns 500 → QStash retries.
           // On retry, already-scored items are skipped (idempotency check above).
-          console.error('[score-worker] scoring error', { id, type, err })
+          logger.error('score_item_failed', {
+            id,
+            type,
+            error:       err instanceof Error ? err.message : String(err),
+            error_stack: err instanceof Error ? err.stack   : undefined,
+            worker:      'score',
+          })
           failed++
 
           // Mark as failed in DB so it doesn't sit as 'pending' forever
@@ -221,6 +230,15 @@ async function handler(request: Request): Promise<Response> {
       { status: 500 }
     )
   }
+
+  logger.info('score_complete', {
+    type,
+    scored,
+    failed,
+    skipped,
+    total: records.length,
+    worker: 'score',
+  })
 
   return Response.json({ type, scored, failed: 0, skipped, total: records.length })
 }

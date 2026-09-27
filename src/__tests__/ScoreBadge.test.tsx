@@ -1,19 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { vi, describe, it, expect } from 'vitest'
 
-// Mock base-ui components that don't render properly in jsdom
-vi.mock('@/components/ui/progress', () => ({
-  Progress: ({ value, indicatorClassName }: { value?: number; indicatorClassName?: string }) => (
-    <div data-testid="progress" data-value={value} data-indicator-class={indicatorClassName} />
-  ),
-}))
-
-vi.mock('@/components/ui/skeleton', () => ({
-  Skeleton: ({ className }: { className?: string }) => (
-    <div data-testid="skeleton" className={className} />
-  ),
-}))
-
 vi.mock('@/components/ui/tooltip', () => ({
   TooltipProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -28,61 +15,72 @@ vi.mock('@/components/ui/tooltip', () => ({
 import { ScoreBadge } from '@/components/ui/ScoreBadge'
 
 describe('ScoreBadge', () => {
-  it('renders a skeleton when score is null', () => {
+  it('renders spinning SVG when score is null', () => {
     render(<ScoreBadge score={null} />)
-    expect(screen.getByTestId('skeleton')).toBeDefined()
-    expect(screen.queryByTestId('progress')).toBeNull()
+    expect(screen.getByLabelText('Scoring in progress')).toBeDefined()
+    expect(screen.queryByLabelText(/^Score:/)).toBeNull()
   })
 
-  it('renders progress bar (not skeleton) when score is provided', () => {
+  it('renders score arc (not spinner) when score is provided', () => {
     render(<ScoreBadge score={75} />)
-    expect(screen.getByTestId('progress')).toBeDefined()
-    expect(screen.queryByTestId('skeleton')).toBeNull()
+    expect(screen.getByLabelText('Score: 75')).toBeDefined()
+    expect(screen.queryByLabelText('Scoring in progress')).toBeNull()
   })
 
-  it('passes green indicator class when score >= 70', () => {
+  it('uses score-high color when score >= 70', () => {
     render(<ScoreBadge score={70} />)
-    expect(screen.getByTestId('progress').getAttribute('data-indicator-class')).toContain('bg-green-500')
+    const span = screen.getByLabelText('Score: 70') as HTMLElement
+    expect(span.style.color).toBe('var(--color-score-high)')
   })
 
-  it('passes green indicator class when score = 100', () => {
+  it('uses score-high color when score = 100', () => {
     render(<ScoreBadge score={100} />)
-    expect(screen.getByTestId('progress').getAttribute('data-indicator-class')).toContain('bg-green-500')
+    const span = screen.getByLabelText('Score: 100') as HTMLElement
+    expect(span.style.color).toBe('var(--color-score-high)')
   })
 
-  it('passes yellow indicator class when score >= 40 and < 70', () => {
+  it('uses score-mid color when score >= 40 and < 70', () => {
     render(<ScoreBadge score={55} />)
-    expect(screen.getByTestId('progress').getAttribute('data-indicator-class')).toContain('bg-yellow-500')
+    const span = screen.getByLabelText('Score: 55') as HTMLElement
+    expect(span.style.color).toBe('var(--color-score-mid)')
   })
 
-  it('passes yellow indicator class when score = 40', () => {
+  it('uses score-mid color when score = 40', () => {
     render(<ScoreBadge score={40} />)
-    expect(screen.getByTestId('progress').getAttribute('data-indicator-class')).toContain('bg-yellow-500')
+    const span = screen.getByLabelText('Score: 40') as HTMLElement
+    expect(span.style.color).toBe('var(--color-score-mid)')
   })
 
-  it('passes red indicator class when score < 40', () => {
+  it('uses score-low color when score < 40', () => {
     render(<ScoreBadge score={39} />)
-    expect(screen.getByTestId('progress').getAttribute('data-indicator-class')).toContain('bg-red-500')
+    const span = screen.getByLabelText('Score: 39') as HTMLElement
+    expect(span.style.color).toBe('var(--color-score-low)')
   })
 
-  it('passes red indicator class when score = 0', () => {
+  it('uses score-low color when score = 0', () => {
     render(<ScoreBadge score={0} />)
-    expect(screen.getByTestId('progress').getAttribute('data-indicator-class')).toContain('bg-red-500')
+    const span = screen.getByLabelText('Score: 0') as HTMLElement
+    expect(span.style.color).toBe('var(--color-score-low)')
   })
 
-  it('renders label text "{score}/100" when showLabel=true and score provided', () => {
-    render(<ScoreBadge score={82} showLabel />)
-    expect(screen.getByText('82/100')).toBeDefined()
+  it('shows "AI score" label when showLabel=true, size="lg", and score is provided', () => {
+    render(<ScoreBadge score={82} showLabel size="lg" />)
+    expect(screen.getByText('AI score')).toBeDefined()
   })
 
-  it('renders "Scoring…" when showLabel=true and score is null', () => {
+  it('does not show label text when showLabel=true and score is null', () => {
     render(<ScoreBadge score={null} showLabel />)
-    expect(screen.getByText('Scoring…')).toBeDefined()
+    expect(screen.queryByText('AI score')).toBeNull()
   })
 
-  it('does not render label text when showLabel=false (default)', () => {
+  it('does not show "AI score" label when showLabel=false (default)', () => {
     render(<ScoreBadge score={82} />)
-    expect(screen.queryByText('82/100')).toBeNull()
+    expect(screen.queryByText('AI score')).toBeNull()
+  })
+
+  it('does not show score number when size="sm"', () => {
+    render(<ScoreBadge score={75} size="sm" />)
+    expect(screen.queryByLabelText('Score: 75')).toBeNull()
   })
 
   it('wraps with tooltip trigger when reason is provided', () => {

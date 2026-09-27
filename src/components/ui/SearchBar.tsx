@@ -99,7 +99,7 @@ export function SearchBar({ placeholder = 'Search listings and jobs…' }: Searc
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder={placeholder}
-          className="h-9 pl-8 pr-3"
+          className="h-9 pl-8 pr-3 rounded-full focus-visible:shadow-[var(--shadow-elevated)]"
           type="search"
           aria-label="Search query"
         />

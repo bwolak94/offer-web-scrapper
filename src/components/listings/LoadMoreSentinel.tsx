@@ -1,11 +1,24 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { Skeleton } from '@/components/ui/skeleton'
 
 interface LoadMoreSentinelProps {
   onVisible: () => void
   isLoading: boolean
+}
+
+function ShimmerCard() {
+  return (
+    <div className="relative h-[140px] w-full overflow-hidden rounded-xl border border-border bg-muted">
+      <div
+        className="absolute inset-0"
+        style={{
+          background: 'linear-gradient(90deg, transparent 0%, oklch(0.99 0.02 265 / 0.7) 50%, transparent 100%)',
+          animation: 'shimmer 1.5s ease-in-out infinite',
+        }}
+      />
+    </div>
+  )
 }
 
 export function LoadMoreSentinel({ onVisible, isLoading }: LoadMoreSentinelProps) {
@@ -38,7 +51,7 @@ export function LoadMoreSentinel({ onVisible, isLoading }: LoadMoreSentinelProps
       {isLoading && (
         <div className="space-y-2">
           {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-[140px] w-full rounded-lg" />
+            <ShimmerCard key={i} />
           ))}
         </div>
       )}

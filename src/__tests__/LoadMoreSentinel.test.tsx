@@ -71,16 +71,16 @@ describe('LoadMoreSentinel', () => {
     expect(onVisible).not.toHaveBeenCalled()
   })
 
-  it('shows skeletons when isLoading is true', () => {
-    render(<LoadMoreSentinel onVisible={vi.fn()} isLoading={true} />)
-    const skeletons = document.querySelectorAll('[data-slot="skeleton"]')
-    expect(skeletons.length).toBeGreaterThan(0)
+  it('shows shimmer cards when isLoading is true', () => {
+    const { container } = render(<LoadMoreSentinel onVisible={vi.fn()} isLoading={true} />)
+    const shimmerCards = container.querySelectorAll('.bg-muted.rounded-xl')
+    expect(shimmerCards.length).toBeGreaterThan(0)
   })
 
-  it('shows no skeletons when isLoading is false', () => {
-    render(<LoadMoreSentinel onVisible={vi.fn()} isLoading={false} />)
-    const skeletons = document.querySelectorAll('[data-slot="skeleton"]')
-    expect(skeletons.length).toBe(0)
+  it('shows no shimmer cards when isLoading is false', () => {
+    const { container } = render(<LoadMoreSentinel onVisible={vi.fn()} isLoading={false} />)
+    const shimmerCards = container.querySelectorAll('.bg-muted.rounded-xl')
+    expect(shimmerCards.length).toBe(0)
   })
 
   it('disconnects observer on unmount', () => {

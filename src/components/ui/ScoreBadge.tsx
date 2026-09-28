@@ -54,7 +54,8 @@ export function ScoreBadge({ score, reason, size = 'md', showLabel = false }: Sc
           cy={dim / 2}
           r={radius}
           fill="none"
-          stroke="var(--color-border)"
+          stroke="var(--color-muted-foreground)"
+          strokeOpacity={0.4}
           strokeWidth={strokeWidth}
           strokeDasharray={`${circumference * 0.25} ${circumference * 0.75}`}
           strokeLinecap="round"

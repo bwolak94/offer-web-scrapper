@@ -96,15 +96,17 @@ export async function scoreItem(
   const groq = getGroqClient()
 
   // Network/API errors (429, 503, timeouts, empty response) bubble up to the caller for retry
+  // /no_think prefix disables Qwen3 chain-of-thought tokens (which count against OTPM).
+  // Other models safely ignore it.
   const completion = await groq.chat.completions.create({
     model:           SCORING_MODEL,
-    max_tokens:      120,
+    max_tokens:      150,
     temperature:     0.0,
     seed:            42,
     response_format: { type: 'json_object' },
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user',   content: userMessage },
+      { role: 'user',   content: `/no_think\n${userMessage}` },
     ],
   })
   const content = completion.choices[0]?.message?.content

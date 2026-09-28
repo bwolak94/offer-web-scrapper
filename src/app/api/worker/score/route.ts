@@ -97,8 +97,8 @@ function rowToScoringContext(
 // Scoring loop — concurrency-capped, rate-limit-aware
 // ---------------------------------------------------------------------------
 
-const CONCURRENCY    = 10
-const BATCH_DELAY_MS = 100
+const CONCURRENCY    = 1
+const BATCH_DELAY_MS = 3_000
 
 async function scoreRecords(
   records:  (ListingRow | JobRow)[],
